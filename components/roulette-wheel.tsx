@@ -6,12 +6,14 @@ import { toast } from "sonner";
 import { spinAction, spinTenAction } from "@/app/actions/spin";
 import { Button } from "@/components/ui/button";
 import { formatProbabilityPercent } from "@/lib/format";
+import { SpinEffect, TIER_RANK, TIER_GLOW, type EffectTier } from "@/components/spin-effect";
 
 type WheelPrize = {
   id: string;
   name: string;
   weight: number;
   color: string;
+  tier: EffectTier;
 };
 
 type BulkResult = { prizeName: string; drawIndex: number };
@@ -82,6 +84,13 @@ export function RouletteWheel({
   const [ticketBalance, setTicketBalance] = useState(initialTicketBalance);
   const [result, setResult] = useState<string | null>(null);
   const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null);
+  const [effectTier, setEffectTier] = useState<EffectTier>("basic");
+
+  const tierById = useMemo(() => {
+    const map = new Map<string, EffectTier>();
+    for (const p of prizes) map.set(p.id, p.tier);
+    return map;
+  }, [prizes]);
 
   const totalWeight = useMemo(() => prizes.reduce((sum, p) => sum + p.weight, 0), [prizes]);
 
@@ -164,6 +173,7 @@ export function RouletteWheel({
       return;
     }
     setTicketBalance(res.remainingTickets);
+    setEffectTier(tierById.get(res.prizeId) ?? "basic");
 
     const slice = slices.find((s) => s.id === res.prizeId);
     let targetRotation: number;
@@ -197,6 +207,14 @@ export function RouletteWheel({
       return;
     }
     setTicketBalance(res.remainingTickets);
+
+    // Bulk draws show the effect for the single best (highest-tier) prize
+    // won across all 11 results, not any one specific slice.
+    const bestTier = res.results.reduce<EffectTier>((best, r) => {
+      const t = tierById.get(r.prizeId) ?? "basic";
+      return TIER_RANK[t] > TIER_RANK[best] ? t : best;
+    }, "basic");
+    setEffectTier(bestTier);
 
     // The wheel spins once as a flourish — 11 individual results don't map to
     // a single slice, so the landing angle here is purely cosmetic.
@@ -270,10 +288,12 @@ export function RouletteWheel({
                   textAnchor="middle"
                   dominantBaseline="middle"
                   transform={`rotate(${rotate}, ${pos.x}, ${pos.y})`}
-                  fontSize={11}
-                  fontWeight={600}
+                  fontSize={11.5}
+                  fontWeight={700}
                   fill={readableTextColor(slice.color)}
-                  style={{ pointerEvents: "none" }}
+                  stroke="rgba(0,0,0,0.35)"
+                  strokeWidth={2.2}
+                  style={{ pointerEvents: "none", paintOrder: "stroke fill" }}
                 >
                   {truncateLabel(slice.name, maxChars)}
                 </text>
@@ -283,6 +303,7 @@ export function RouletteWheel({
             <circle cx={CENTER} cy={CENTER} r={RADIUS * 0.14} fill="var(--card)" stroke="var(--border)" />
           </svg>
         </motion.div>
+        <SpinEffect tier={effectTier} active={spinning} />
       </div>
 
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
@@ -319,14 +340,34 @@ export function RouletteWheel({
       )}
 
       {result && (
-        <div className="w-full max-w-xs rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+        <div
+          className="w-full max-w-xs rounded-2xl border bg-card p-6 text-center shadow-sm"
+          style={
+            effectTier !== "basic"
+              ? {
+                  borderColor: TIER_GLOW[effectTier],
+                  boxShadow: `0 0 28px ${TIER_GLOW[effectTier]}55`,
+                }
+              : undefined
+          }
+        >
           <p className="text-sm text-muted-foreground">축하합니다!</p>
           <p className="mt-1 font-heading text-xl font-semibold text-foreground">{result}</p>
         </div>
       )}
 
       {bulkResults && (
-        <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div
+          className="w-full max-w-xl rounded-2xl border bg-card p-6 shadow-sm"
+          style={
+            effectTier !== "basic"
+              ? {
+                  borderColor: TIER_GLOW[effectTier],
+                  boxShadow: `0 0 28px ${TIER_GLOW[effectTier]}55`,
+                }
+              : undefined
+          }
+        >
           <p className="text-center text-sm text-muted-foreground">
             10+1연차 결과 ({BULK_TOTAL_DRAWS}회)
           </p>

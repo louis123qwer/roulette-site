@@ -20,9 +20,19 @@ import {
 } from "@/components/ui/table";
 
 type Prize = Database["public"]["Tables"]["prizes"]["Row"];
+type Tier = Database["public"]["Tables"]["prizes"]["Row"]["tier"];
 
 const BULK_TICKET_COST = 10;
 const BULK_TOTAL_DRAWS = 11;
+
+const TIER_LABELS: Record<Tier, string> = {
+  legendary: "최고",
+  gold: "골드",
+  purple: "보라",
+  blue: "파랑",
+  basic: "기본",
+};
+const TIER_OPTIONS = Object.keys(TIER_LABELS) as Tier[];
 
 const COLOR_PALETTE = [
   "#B8394B",
@@ -47,10 +57,11 @@ export function PrizeManager({
   const [prizes, setPrizes] = useState(initialPrizes);
   const [ticketPrice, setTicketPrice] = useState(String(initialTicketPrice));
   const [isPending, startTransition] = useTransition();
-  const [newPrize, setNewPrize] = useState({
+  const [newPrize, setNewPrize] = useState<{ name: string; weight: string; color: string; tier: Tier }>({
     name: "",
     weight: "10",
     color: COLOR_PALETTE[0],
+    tier: "basic",
   });
 
   const totalWeight = prizes.filter((p) => p.is_active).reduce((sum, p) => sum + p.weight, 0);
@@ -81,7 +92,7 @@ export function PrizeManager({
 
   function saveField(
     id: string,
-    patch: Partial<Pick<Prize, "name" | "color" | "weight" | "market_price">>
+    patch: Partial<Pick<Prize, "name" | "color" | "weight" | "market_price" | "tier">>
   ) {
     const supabase = createClient();
     startTransition(async () => {
@@ -133,6 +144,7 @@ export function PrizeManager({
           name: newPrize.name.trim(),
           weight,
           color: newPrize.color,
+          tier: newPrize.tier,
           sort_order: prizes.length,
         })
         .select()
@@ -146,6 +158,7 @@ export function PrizeManager({
         name: "",
         weight: "10",
         color: COLOR_PALETTE[(prizes.length + 1) % COLOR_PALETTE.length],
+        tier: "basic",
       });
     });
   }
@@ -207,6 +220,21 @@ export function PrizeManager({
               className="h-9 p-1"
             />
           </div>
+          <div className="w-28 space-y-1.5">
+            <Label htmlFor="prize-tier">이펙트 등급</Label>
+            <select
+              id="prize-tier"
+              value={newPrize.tier}
+              onChange={(e) => setNewPrize((p) => ({ ...p, tier: e.target.value as Tier }))}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+            >
+              {TIER_OPTIONS.map((t) => (
+                <option key={t} value={t}>
+                  {TIER_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button onClick={addPrize} disabled={isPending}>
             추가
           </Button>
@@ -226,6 +254,7 @@ export function PrizeManager({
               <TableRow>
                 <TableHead>색상</TableHead>
                 <TableHead>상품명</TableHead>
+                <TableHead>등급</TableHead>
                 <TableHead>가중치</TableHead>
                 <TableHead>실제 확률</TableHead>
                 <TableHead>시세(골드)</TableHead>
@@ -259,6 +288,23 @@ export function PrizeManager({
                         }
                       }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      value={prize.tier}
+                      onChange={(e) => {
+                        const value = e.target.value as Tier;
+                        updatePrizeLocal(prize.id, { tier: value });
+                        saveField(prize.id, { tier: value });
+                      }}
+                      className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                    >
+                      {TIER_OPTIONS.map((t) => (
+                        <option key={t} value={t}>
+                          {TIER_LABELS[t]}
+                        </option>
+                      ))}
+                    </select>
                   </TableCell>
                   <TableCell>
                     <Input

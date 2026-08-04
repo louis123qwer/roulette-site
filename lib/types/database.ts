@@ -1,6 +1,7 @@
 export type Role = "user" | "admin";
 export type WinStatus = "pending" | "paid";
 export type TicketReason = "signup_grant" | "spin_consume" | "admin_adjust" | "refund";
+export type PrizeTier = "legendary" | "gold" | "purple" | "blue" | "basic";
 
 // Fallback shape for the index signature required below — supabase-js's
 // SupabaseClient resolves its Schema type parameter via `Tables extends
@@ -51,6 +52,7 @@ export interface Database {
           description: string | null;
           weight: number;
           color: string;
+          tier: PrizeTier;
           market_price: number;
           is_active: boolean;
           sort_order: number;
@@ -63,6 +65,7 @@ export interface Database {
           description?: string | null;
           weight: number;
           color?: string;
+          tier?: PrizeTier;
           market_price?: number;
           is_active?: boolean;
           sort_order?: number;
@@ -72,6 +75,7 @@ export interface Database {
           description?: string | null;
           weight?: number;
           color?: string;
+          tier?: PrizeTier;
           market_price?: number;
           is_active?: boolean;
           sort_order?: number;

@@ -10,7 +10,7 @@ export default async function RoulettePage() {
 
   const { data: prizes } = await supabase
     .from("prizes")
-    .select("id, name, weight, color")
+    .select("id, name, weight, color, tier")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
