@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { RouletteWheel } from "@/components/roulette-wheel";
+import { RouletteRulesModal } from "@/components/roulette-rules-modal";
 
 export default async function RoulettePage() {
   const profile = await requireUser();
@@ -22,6 +23,7 @@ export default async function RoulettePage() {
 
   return (
     <div className="space-y-8">
+      <RouletteRulesModal />
       <div className="text-center">
         <p className="font-heading text-2xl font-semibold text-foreground">룰렛</p>
         <p className="mt-1 text-sm text-muted-foreground">
