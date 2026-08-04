@@ -16,6 +16,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           userId={profile.id}
           ticketBalance={profile.ticket_balance}
           isAdmin={profile.role === "admin"}
+          displayName={profile.display_name}
+          avatarUrl={profile.avatar_url}
         />
         <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
       </div>

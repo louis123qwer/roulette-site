@@ -33,6 +33,7 @@ export interface Database {
           id: string;
           email: string;
           display_name: string | null;
+          avatar_url: string | null;
           role: Role;
           ticket_balance: number;
           created_at: string;
@@ -169,6 +170,26 @@ export interface Database {
       admin_grant_tickets: {
         Args: { p_user_id: string; p_amount: number };
         Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      set_avatar_url: {
+        Args: { p_avatar_url: string };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      admin_mark_wins_paid: {
+        Args: { p_win_ids: string[] };
+        Returns: Database["public"]["Tables"]["wins"]["Row"][];
+      };
+      admin_mark_all_pending_paid: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      admin_delete_wins: {
+        Args: { p_win_ids: string[] };
+        Returns: number;
+      };
+      admin_delete_paid_wins: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       [key: string]: FunctionFallback;
     };

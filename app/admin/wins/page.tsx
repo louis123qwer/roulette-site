@@ -1,12 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { WinRow } from "@/components/admin/win-row";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { WinManager } from "@/components/admin/win-manager";
 
 export default async function AdminWinsPage() {
   const supabase = await createClient();
@@ -18,32 +11,23 @@ export default async function AdminWinsPage() {
 
   const userIds = Array.from(new Set((wins ?? []).map((w) => w.user_id)));
   const { data: profiles } = userIds.length
-    ? await supabase.from("profiles").select("id, email").in("id", userIds)
-    : { data: [] as { id: string; email: string }[] };
+    ? await supabase.from("profiles").select("id, email, display_name").in("id", userIds)
+    : { data: [] as { id: string; email: string; display_name: string | null }[] };
 
-  const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email]));
+  const userInfoById: Record<string, { label: string; email: string }> = {};
+  for (const p of profiles ?? []) {
+    userInfoById[p.id] = { label: p.display_name ?? p.email, email: p.email };
+  }
 
   return (
     <div className="space-y-6">
-      <p className="font-heading text-2xl font-semibold text-foreground">당첨 내역 관리</p>
-      <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>유저</TableHead>
-              <TableHead>상품</TableHead>
-              <TableHead>당첨 시각</TableHead>
-              <TableHead>상태</TableHead>
-              <TableHead className="text-right">처리</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(wins ?? []).map((win) => (
-              <WinRow key={win.id} win={win} userEmail={emailById.get(win.user_id) ?? "알 수 없음"} />
-            ))}
-          </TableBody>
-        </Table>
+      <div>
+        <p className="font-heading text-2xl font-semibold text-foreground">당첨 내역 관리</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          회원별·상품별로 묶어서 보여줍니다. 체크 후 일괄 지급완료 또는 삭제할 수 있어요.
+        </p>
       </div>
+      <WinManager initialWins={wins ?? []} userInfoById={userInfoById} />
     </div>
   );
 }

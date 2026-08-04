@@ -5,15 +5,20 @@ import { TicketBalance } from "@/components/ticket-balance";
 import { Separator } from "@/components/ui/separator";
 import { DragonCrest } from "@/components/dragon-crest";
 import { MobileNav } from "@/components/mobile-nav";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export function AppNav({
   userId,
   ticketBalance,
   isAdmin,
+  displayName,
+  avatarUrl,
 }: {
   userId: string;
   ticketBalance: number;
   isAdmin: boolean;
+  displayName: string | null;
+  avatarUrl: string | null;
 }) {
   const links = [
     { href: "/dashboard", label: "대시보드" },
@@ -48,6 +53,12 @@ export function AppNav({
             <TicketBalance userId={userId} initialBalance={ticketBalance} />
           </div>
           <Separator orientation="vertical" className="hidden h-6 sm:block" />
+          <Link href="/settings" aria-label="프로필 설정">
+            <Avatar size="sm">
+              <AvatarImage src={avatarUrl ?? undefined} alt="" />
+              <AvatarFallback>{(displayName ?? "?").slice(0, 1)}</AvatarFallback>
+            </Avatar>
+          </Link>
           <LogoutButton />
         </div>
       </div>
