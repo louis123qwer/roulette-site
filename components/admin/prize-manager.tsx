@@ -220,7 +220,7 @@ export function PrizeManager({
             당첨 확률이 낮은(희귀한) 상품이 위에서부터 자동 정렬됩니다.
           </p>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="overflow-x-auto pt-0">
           <Table>
             <TableHeader>
               <TableRow>

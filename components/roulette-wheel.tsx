@@ -214,7 +214,7 @@ export function RouletteWheel({
 
   return (
     <div className="flex flex-col items-center gap-8">
-      <div className="relative" style={{ width: SIZE, height: SIZE }}>
+      <div className="relative mx-auto aspect-square w-full max-w-[320px]">
         <div
           className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2"
           style={{
@@ -229,13 +229,13 @@ export function RouletteWheel({
           initial={{ rotate: 0 }}
           animate={controls}
           style={{
-            width: SIZE,
-            height: SIZE,
+            width: "100%",
+            height: "100%",
             transformOrigin: "50% 50%",
             filter: "drop-shadow(0 8px 20px rgb(0 0 0 / 0.18))",
           }}
         >
-          <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+          <svg width="100%" height="100%" viewBox={`0 0 ${SIZE} ${SIZE}`}>
             <defs>
               <radialGradient id="wheel-sheen" cx="50%" cy="42%" r="65%">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity="0.16" />

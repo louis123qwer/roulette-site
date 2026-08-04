@@ -74,7 +74,7 @@ export default async function AdminLedgerPage() {
         <CardHeader>
           <p className="text-sm font-medium text-foreground">일자별 내역</p>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="overflow-x-auto pt-0">
           {rows.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               아직 집계된 내역이 없습니다.
