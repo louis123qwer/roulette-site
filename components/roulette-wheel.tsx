@@ -231,6 +231,13 @@ export function RouletteWheel({
       const rw = weightById.get(rarestId) ?? Infinity;
       return w < rw ? r.prizeId : rarestId;
     }, res.results[0].prizeId);
+    console.log("[bulk] results", res.results);
+    console.log("[bulk] weightById keys", Array.from(weightById.keys()));
+    console.log("[bulk] rarestPrizeId", rarestPrizeId);
+    console.log(
+      "[bulk] matching slice",
+      slices.find((s) => s.id === rarestPrizeId)
+    );
     const targetRotation = computeLandingRotation(rarestPrizeId);
 
     pendingRevealRef.current = {
