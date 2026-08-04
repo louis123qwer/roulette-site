@@ -4,9 +4,10 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DragonCrest } from "@/components/dragon-crest";
 
-export type EffectTier = "legendary" | "gold" | "purple" | "blue" | "basic";
+export type EffectTier = "mythic" | "legendary" | "gold" | "purple" | "blue" | "basic";
 
 export const TIER_RANK: Record<EffectTier, number> = {
+  mythic: 5,
   legendary: 4,
   gold: 3,
   purple: 2,
@@ -15,6 +16,7 @@ export const TIER_RANK: Record<EffectTier, number> = {
 };
 
 export const TIER_GLOW: Record<EffectTier, string> = {
+  mythic: "#b81e2b",
   legendary: "#f5c56a",
   gold: "#e0b34d",
   purple: "#a879e0",
@@ -35,6 +37,16 @@ const TIER_STYLE: Record<
     lightning: boolean;
   }
 > = {
+  mythic: {
+    glow: "#b81e2b",
+    ring: "#e6394a",
+    orbiters: 10,
+    dragons: 4,
+    particles: 42,
+    particleColor: "#ff3b30",
+    speed: 2.4,
+    lightning: false,
+  },
   legendary: {
     glow: "#f5c56a",
     ring: "#f5c56a",
@@ -101,7 +113,7 @@ export function SpinEffect({ tier, active }: { tier: EffectTier; active: boolean
     return Array.from({ length: cfg.orbiters }, (_, i) => ({
       angle: (360 / cfg.orbiters) * i,
       isDragon: i < cfg.dragons,
-      size: tier === "legendary" ? 22 : 16,
+      size: tier === "mythic" ? 25 : tier === "legendary" ? 22 : 16,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tier]);

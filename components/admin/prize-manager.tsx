@@ -26,6 +26,7 @@ const BULK_TICKET_COST = 10;
 const BULK_TOTAL_DRAWS = 11;
 
 const TIER_LABELS: Record<Tier, string> = {
+  mythic: "신화",
   legendary: "최고",
   gold: "골드",
   purple: "보라",
