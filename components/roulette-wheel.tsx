@@ -92,6 +92,12 @@ export function RouletteWheel({
     return map;
   }, [prizes]);
 
+  const weightById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of prizes) map.set(p.id, p.weight);
+    return map;
+  }, [prizes]);
+
   const totalWeight = useMemo(() => prizes.reduce((sum, p) => sum + p.weight, 0), [prizes]);
 
   // Biggest slices first, going clockwise from the top — easier to scan than
@@ -160,6 +166,21 @@ export function RouletteWheel({
     revealNow();
   }
 
+  function computeLandingRotation(prizeId: string): number {
+    const slice = slices.find((s) => s.id === prizeId);
+    if (!slice) {
+      // Prize no longer in the client's active list (edited mid-spin) — spin cosmetically.
+      return rotationRef.current + 6 * 360;
+    }
+    const span = slice.endAngle - slice.startAngle;
+    const within = slice.startAngle + span * (0.15 + Math.random() * 0.7);
+    const targetMod = (360 - within) % 360;
+    const currentMod = ((rotationRef.current % 360) + 360) % 360;
+    const delta = (targetMod - currentMod + 360) % 360;
+    const extraSpins = 5 + Math.floor(Math.random() * 3);
+    return rotationRef.current + extraSpins * 360 + delta;
+  }
+
   async function handleSpin() {
     if (spinning || ticketBalance < 1) return;
     setSpinning(true);
@@ -175,20 +196,7 @@ export function RouletteWheel({
     setTicketBalance(res.remainingTickets);
     setEffectTier(tierById.get(res.prizeId) ?? "basic");
 
-    const slice = slices.find((s) => s.id === res.prizeId);
-    let targetRotation: number;
-    if (slice) {
-      const span = slice.endAngle - slice.startAngle;
-      const within = slice.startAngle + span * (0.15 + Math.random() * 0.7);
-      const targetMod = (360 - within) % 360;
-      const currentMod = ((rotationRef.current % 360) + 360) % 360;
-      const delta = (targetMod - currentMod + 360) % 360;
-      const extraSpins = 5 + Math.floor(Math.random() * 3);
-      targetRotation = rotationRef.current + extraSpins * 360 + delta;
-    } else {
-      // Prize no longer in the client's active list (edited mid-spin) — spin cosmetically.
-      targetRotation = rotationRef.current + 6 * 360;
-    }
+    const targetRotation = computeLandingRotation(res.prizeId);
 
     pendingRevealRef.current = { type: "single", prizeName: res.prizeName };
     runSpin(targetRotation, SPIN_DURATION);
@@ -216,10 +224,14 @@ export function RouletteWheel({
     }, "basic");
     setEffectTier(bestTier);
 
-    // The wheel spins once as a flourish — 11 individual results don't map to
-    // a single slice, so the landing angle here is purely cosmetic.
-    const extraSpins = 6 + Math.floor(Math.random() * 3);
-    const targetRotation = rotationRef.current + extraSpins * 360 + Math.random() * 360;
+    // The wheel lands on whichever of the 11 results is rarest (lowest real
+    // probability) — a representative highlight for the whole batch.
+    const rarestPrizeId = res.results.reduce((rarestId, r) => {
+      const w = weightById.get(r.prizeId) ?? Infinity;
+      const rw = weightById.get(rarestId) ?? Infinity;
+      return w < rw ? r.prizeId : rarestId;
+    }, res.results[0].prizeId);
+    const targetRotation = computeLandingRotation(rarestPrizeId);
 
     pendingRevealRef.current = {
       type: "bulk",
