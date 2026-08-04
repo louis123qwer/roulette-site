@@ -100,26 +100,44 @@ export function RouletteWheel({
 
   const totalWeight = useMemo(() => prizes.reduce((sum, p) => sum + p.weight, 0), [prizes]);
 
-  // Biggest slices first, going clockwise from the top — easier to scan than
-  // whatever order the admin added prizes in.
-  const sortedPrizes = useMemo(
-    () => [...prizes].sort((a, b) => b.weight - a.weight),
-    [prizes]
-  );
+  function defaultOrder() {
+    return [...prizes].sort((a, b) => b.weight - a.weight);
+  }
+
+  // Biggest slices first by default, going clockwise from the top — easier
+  // to scan than whatever order the admin added prizes in. The admin can
+  // shuffle this arrangement (cosmetic only, odds are unaffected) via the
+  // buttons below the wheel.
+  const [displayOrder, setDisplayOrder] = useState<WheelPrize[]>(defaultOrder);
+
+  function shuffleOrder() {
+    if (spinning) return;
+    const arr = [...displayOrder];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    setDisplayOrder(arr);
+  }
+
+  function resetOrder() {
+    if (spinning) return;
+    setDisplayOrder(defaultOrder());
+  }
 
   // Visual slice geometry: real weights are floored to a minimum visible
   // angle then rescaled to fill 360° — this only affects how the wheel is
   // drawn, never the true odds (which come from prize.weight / totalWeight,
   // used unmodified for the legend labels and server-side probability).
   const slices = useMemo(() => {
-    if (sortedPrizes.length === 0 || totalWeight <= 0) return [];
+    if (displayOrder.length === 0 || totalWeight <= 0) return [];
 
-    const rawAngles = sortedPrizes.map((p) => (p.weight / totalWeight) * 360);
+    const rawAngles = displayOrder.map((p) => (p.weight / totalWeight) * 360);
     const boostedAngles = rawAngles.map((a) => Math.max(a, MIN_VISUAL_DEGREES));
     const boostedTotal = boostedAngles.reduce((sum, a) => sum + a, 0);
     const scale = 360 / boostedTotal;
 
-    return sortedPrizes.reduce<Array<WheelPrize & { startAngle: number; endAngle: number }>>(
+    return displayOrder.reduce<Array<WheelPrize & { startAngle: number; endAngle: number }>>(
       (acc, prize, index) => {
         const startAngle = acc.length > 0 ? acc[acc.length - 1].endAngle : 0;
         const endAngle = startAngle + boostedAngles[index] * scale;
@@ -128,7 +146,7 @@ export function RouletteWheel({
       },
       []
     );
-  }, [sortedPrizes, totalWeight]);
+  }, [displayOrder, totalWeight]);
 
   function revealNow() {
     if (revealedRef.current) return;
@@ -318,16 +336,49 @@ export function RouletteWheel({
         <SpinEffect tier={effectTier} active={spinning} />
       </div>
 
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
-        {sortedPrizes.map((prize) => (
-          <span key={prize.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: prize.color }}
-            />
-            {prize.name} · {formatProbabilityPercent(prize.weight / totalWeight)}
-          </span>
-        ))}
+      <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">상품 확률표</p>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={shuffleOrder}
+              disabled={spinning}
+            >
+              순서 섞기
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={resetOrder}
+              disabled={spinning}
+            >
+              원래 순서
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
+          {displayOrder.map((prize) => (
+            <div
+              key={prize.id}
+              className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: prize.color }}
+                />
+                <span className="truncate text-foreground">{prize.name}</span>
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {formatProbabilityPercent(prize.weight / totalWeight)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {spinning ? (

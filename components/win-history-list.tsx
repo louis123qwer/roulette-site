@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/types/database";
+import { deleteMyPaidWinsAction } from "@/app/actions/history";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Win = Database["public"]["Tables"]["wins"]["Row"];
@@ -17,6 +19,7 @@ export function WinHistoryList({
   initialWins: Win[];
 }) {
   const [wins, setWins] = useState(initialWins);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     const supabase = createClient();
@@ -45,6 +48,24 @@ export function WinHistoryList({
     };
   }, [userId]);
 
+  const paidCount = wins.filter((w) => w.status === "paid").length;
+
+  function handleDeletePaid() {
+    if (paidCount === 0) return;
+    if (!window.confirm(`수령완료된 ${paidCount}건을 목록에서 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await deleteMyPaidWinsAction();
+      if (!res.ok) {
+        toast.error("삭제에 실패했습니다: " + res.message);
+        return;
+      }
+      setWins((prev) => prev.filter((w) => w.status !== "paid"));
+      toast.success(`${res.count}건 삭제했습니다.`);
+    });
+  }
+
   if (wins.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-card p-10 text-center">
@@ -55,6 +76,18 @@ export function WinHistoryList({
 
   return (
     <div className="space-y-3">
+      {paidCount > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDeletePaid}
+            disabled={isPending}
+          >
+            수령완료 전체 삭제 ({paidCount})
+          </Button>
+        </div>
+      )}
       {wins.map((win) => (
         <div
           key={win.id}

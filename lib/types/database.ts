@@ -195,6 +195,10 @@ export interface Database {
         Args: Record<string, never>;
         Returns: number;
       };
+      delete_my_paid_wins: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
       [key: string]: FunctionFallback;
     };
   };
