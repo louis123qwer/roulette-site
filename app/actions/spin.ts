@@ -13,9 +13,9 @@ export type SpinResult =
     }
   | { ok: false; code: string };
 
-export async function spinAction(): Promise<SpinResult> {
+export async function spinAction(testMode = true): Promise<SpinResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("spin_roulette").single();
+  const { data, error } = await supabase.rpc("spin_roulette", { p_test_mode: testMode }).single();
 
   if (error || !data) {
     console.error("[spinAction] rpc error", {
@@ -37,9 +37,9 @@ export async function spinAction(): Promise<SpinResult> {
   };
 }
 
-export async function spinLuckyAction(): Promise<SpinResult> {
+export async function spinLuckyAction(testMode = true): Promise<SpinResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("spin_roulette_lucky").single();
+  const { data, error } = await supabase.rpc("spin_roulette_lucky", { p_test_mode: testMode }).single();
 
   if (error || !data) {
     console.error("[spinLuckyAction] rpc error", {
@@ -70,9 +70,9 @@ export type BulkSpinResult =
     }
   | { ok: false; code: string };
 
-export async function spinTenAction(): Promise<BulkSpinResult> {
+export async function spinTenAction(testMode = true): Promise<BulkSpinResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("spin_roulette_bulk");
+  const { data, error } = await supabase.rpc("spin_roulette_bulk", { p_test_mode: testMode });
 
   if (error || !data || data.length === 0) {
     console.error("[spinTenAction] rpc error", {

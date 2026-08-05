@@ -175,7 +175,7 @@ export interface Database {
     };
     Functions: {
       spin_roulette: {
-        Args: Record<string, never>;
+        Args: { p_test_mode?: boolean };
         Returns: {
           win_id: string;
           prize_id: string;
@@ -185,7 +185,7 @@ export interface Database {
         }[];
       };
       spin_roulette_bulk: {
-        Args: Record<string, never>;
+        Args: { p_test_mode?: boolean };
         Returns: {
           win_id: string;
           prize_id: string;
@@ -196,7 +196,7 @@ export interface Database {
         }[];
       };
       spin_roulette_lucky: {
-        Args: Record<string, never>;
+        Args: { p_test_mode?: boolean };
         Returns: {
           win_id: string;
           prize_id: string;

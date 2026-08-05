@@ -5,6 +5,8 @@ import { motion, useAnimation } from "framer-motion";
 import { toast } from "sonner";
 import { spinAction, spinTenAction, spinLuckyAction } from "@/app/actions/spin";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { formatProbabilityPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SpinEffect, TIER_RANK, TIER_GLOW, type EffectTier } from "@/components/spin-effect";
@@ -15,7 +17,25 @@ type WheelPrize = {
   weight: number;
   color: string;
   tier: EffectTier;
+  is_blank: boolean;
 };
+
+// Super Lucky Chance odds: blank prizes are excluded, purple～mythic weight
+// x10, blue weight x20 — mirrors spin_roulette_lucky() server-side exactly,
+// used here only to redraw the wheel/legend, never to decide the result.
+function luckyWeight(prize: Pick<WheelPrize, "weight" | "tier" | "is_blank">): number {
+  if (prize.is_blank) return 0;
+  if (
+    prize.tier === "purple" ||
+    prize.tier === "gold" ||
+    prize.tier === "legendary" ||
+    prize.tier === "mythic"
+  ) {
+    return prize.weight * 10;
+  }
+  if (prize.tier === "blue") return prize.weight * 20;
+  return prize.weight;
+}
 
 type BulkResult = { prizeName: string; drawIndex: number };
 
@@ -95,8 +115,15 @@ export function RouletteWheel({
   const [effectTier, setEffectTier] = useState<EffectTier>("basic");
   const [luckyGauge, setLuckyGauge] = useState(initialLuckyGauge);
   const [wasLuckySpin, setWasLuckySpin] = useState(false);
+  const [wheelMode, setWheelMode] = useState<"normal" | "lucky">("normal");
+  // Admin-only, client-side controls: testMode decides whether this admin's
+  // spins are free/untracked or real (real tickets, real records); luckyPreview
+  // lets the admin flip on the Lucky Chance button without grinding the gauge.
+  const [testMode, setTestMode] = useState(true);
+  const [luckyPreview, setLuckyPreview] = useState(false);
 
-  const luckyReady = isAdmin || luckyGauge >= LUCKY_GAUGE_MAX;
+  const unlimited = isAdmin && testMode;
+  const luckyReady = (isAdmin && luckyPreview) || luckyGauge >= LUCKY_GAUGE_MAX;
 
   const tierById = useMemo(() => {
     const map = new Map<string, EffectTier>();
@@ -109,8 +136,6 @@ export function RouletteWheel({
     for (const p of prizes) map.set(p.id, p.weight);
     return map;
   }, [prizes]);
-
-  const totalWeight = useMemo(() => prizes.reduce((sum, p) => sum + p.weight, 0), [prizes]);
 
   function defaultOrder() {
     return [...prizes].sort((a, b) => b.weight - a.weight);
@@ -137,19 +162,36 @@ export function RouletteWheel({
     setDisplayOrder(defaultOrder());
   }
 
-  // Visual slice geometry: real weights are floored to a minimum visible
-  // angle then rescaled to fill 360° — this only affects how the wheel is
-  // drawn, never the true odds (which come from prize.weight / totalWeight,
-  // used unmodified for the legend labels and server-side probability).
-  const slices = useMemo(() => {
-    if (displayOrder.length === 0 || totalWeight <= 0) return [];
+  // Legend/wheel prize list for the current mode — Lucky Chance excludes
+  // blank prizes entirely (0% during that mode), so they're dropped rather
+  // than shown as a fake sliver.
+  const visibleOrder = useMemo(() => {
+    if (wheelMode !== "lucky") return displayOrder;
+    return displayOrder.filter((p) => !p.is_blank);
+  }, [displayOrder, wheelMode]);
 
-    const rawAngles = displayOrder.map((p) => (p.weight / totalWeight) * 360);
+  const activeWeight = useMemo(() => {
+    return (prize: WheelPrize) => (wheelMode === "lucky" ? luckyWeight(prize) : prize.weight);
+  }, [wheelMode]);
+
+  const activeTotalWeight = useMemo(
+    () => visibleOrder.reduce((sum, p) => sum + activeWeight(p), 0),
+    [visibleOrder, activeWeight]
+  );
+
+  // Visual slice geometry: weights (real, or Lucky-Chance-boosted while that
+  // mode is active) are floored to a minimum visible angle then rescaled to
+  // fill 360° — this only affects how the wheel is drawn, never the true
+  // odds (server-side, using the exact same boost formula for Lucky Chance).
+  const slices = useMemo(() => {
+    if (visibleOrder.length === 0 || activeTotalWeight <= 0) return [];
+
+    const rawAngles = visibleOrder.map((p) => (activeWeight(p) / activeTotalWeight) * 360);
     const boostedAngles = rawAngles.map((a) => Math.max(a, MIN_VISUAL_DEGREES));
     const boostedTotal = boostedAngles.reduce((sum, a) => sum + a, 0);
     const scale = 360 / boostedTotal;
 
-    return displayOrder.reduce<Array<WheelPrize & { startAngle: number; endAngle: number }>>(
+    return visibleOrder.reduce<Array<WheelPrize & { startAngle: number; endAngle: number }>>(
       (acc, prize, index) => {
         const startAngle = acc.length > 0 ? acc[acc.length - 1].endAngle : 0;
         const endAngle = startAngle + boostedAngles[index] * scale;
@@ -158,7 +200,7 @@ export function RouletteWheel({
       },
       []
     );
-  }, [displayOrder, totalWeight]);
+  }, [visibleOrder, activeTotalWeight, activeWeight]);
 
   function revealNow() {
     if (revealedRef.current) return;
@@ -218,12 +260,13 @@ export function RouletteWheel({
   }
 
   async function handleSpin() {
-    if (spinning || (!isAdmin && ticketBalance < 1)) return;
+    if (spinning || (!unlimited && ticketBalance < 1)) return;
     setSpinning(true);
     setResult(null);
     setBulkResults(null);
+    setWheelMode("normal");
 
-    const res = await spinAction();
+    const res = await spinAction(isAdmin ? testMode : true);
     if (!res.ok) {
       toast.error(errorMessage(res.code));
       setSpinning(false);
@@ -240,15 +283,17 @@ export function RouletteWheel({
   }
 
   async function handleSpinLucky() {
-    if (spinning || !luckyReady) return;
+    if (spinning || !luckyReady || (!unlimited && ticketBalance < 1)) return;
     setSpinning(true);
     setResult(null);
     setBulkResults(null);
+    setWheelMode("lucky");
 
-    const res = await spinLuckyAction();
+    const res = await spinLuckyAction(isAdmin ? testMode : true);
     if (!res.ok) {
       toast.error(errorMessage(res.code));
       setSpinning(false);
+      setWheelMode("normal");
       return;
     }
     setTicketBalance(res.remainingTickets);
@@ -262,12 +307,13 @@ export function RouletteWheel({
   }
 
   async function handleSpinTen() {
-    if (spinning || (!isAdmin && ticketBalance < BULK_PAID_DRAWS)) return;
+    if (spinning || (!unlimited && ticketBalance < BULK_PAID_DRAWS)) return;
     setSpinning(true);
     setResult(null);
     setBulkResults(null);
+    setWheelMode("normal");
 
-    const res = await spinTenAction();
+    const res = await spinTenAction(isAdmin ? testMode : true);
     if (!res.ok) {
       toast.error(errorMessage(res.code));
       setSpinning(false);
@@ -381,9 +427,39 @@ export function RouletteWheel({
         <SpinEffect tier={effectTier} active={spinning} />
       </div>
 
+      {isAdmin && (
+        <div className="w-full max-w-xs space-y-2.5 rounded-xl border border-dashed border-border bg-muted/40 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="admin-test-toggle" className="text-xs text-muted-foreground">
+              테스트 모드 (뽑기권 소모 없음, 기록 안 됨)
+            </Label>
+            <Switch
+              id="admin-test-toggle"
+              checked={testMode}
+              onCheckedChange={setTestMode}
+              disabled={spinning}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="admin-lucky-toggle" className="text-xs text-muted-foreground">
+              럭키찬스 미리보기 (게이지 무시)
+            </Label>
+            <Switch
+              id="admin-lucky-toggle"
+              checked={luckyPreview}
+              onCheckedChange={setLuckyPreview}
+              disabled={spinning}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-xs font-medium text-muted-foreground">상품 확률표</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            상품 확률표
+            {wheelMode === "lucky" && <span className="lucky-text ml-1.5 font-semibold">(럭키찬스 적용)</span>}
+          </p>
           <div className="flex gap-1.5">
             <Button
               size="sm"
@@ -406,7 +482,7 @@ export function RouletteWheel({
           </div>
         </div>
         <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
-          {displayOrder.map((prize) => (
+          {visibleOrder.map((prize) => (
             <div
               key={prize.id}
               className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm"
@@ -419,7 +495,7 @@ export function RouletteWheel({
                 <span className="truncate text-foreground">{prize.name}</span>
               </span>
               <span className="shrink-0 tabular-nums text-muted-foreground">
-                {formatProbabilityPercent(prize.weight / totalWeight)}
+                {formatProbabilityPercent(activeWeight(prize) / activeTotalWeight)}
               </span>
             </div>
           ))}
@@ -430,14 +506,14 @@ export function RouletteWheel({
         <div className="flex items-center justify-between text-xs">
           <span className="font-medium text-muted-foreground">슈퍼 럭키 신화찬스 게이지</span>
           <span className={cn("font-semibold tabular-nums", luckyReady && "lucky-text")}>
-            {isAdmin ? "테스트 모드 (무제한)" : `${luckyGauge}/${LUCKY_GAUGE_MAX}`}
+            {luckyGauge}/{LUCKY_GAUGE_MAX}
           </span>
         </div>
         <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
           <div
             className={cn("h-full rounded-full transition-[width] duration-500", luckyReady && "lucky-gauge-fill")}
             style={{
-              width: `${isAdmin ? 100 : Math.min(100, (luckyGauge / LUCKY_GAUGE_MAX) * 100)}%`,
+              width: `${Math.min(100, (luckyGauge / LUCKY_GAUGE_MAX) * 100)}%`,
               backgroundColor: luckyReady ? undefined : "var(--foreground)",
             }}
           />
@@ -451,7 +527,12 @@ export function RouletteWheel({
       ) : (
         <div className="flex w-full max-w-xs flex-col gap-3">
           {luckyReady ? (
-            <Button size="lg" className="lucky-button w-full" onClick={handleSpinLucky}>
+            <Button
+              size="lg"
+              className="lucky-button w-full"
+              onClick={handleSpinLucky}
+              disabled={!unlimited && ticketBalance < 1}
+            >
               ✨ 슈퍼 럭키 신화찬스 ✨
             </Button>
           ) : (
@@ -459,9 +540,9 @@ export function RouletteWheel({
               size="lg"
               className="w-full"
               onClick={handleSpin}
-              disabled={!isAdmin && ticketBalance < 1}
+              disabled={!unlimited && ticketBalance < 1}
             >
-              {isAdmin ? "스핀하기 (테스트, 무제한)" : `스핀하기 (${ticketBalance}장 남음)`}
+              {unlimited ? "스핀하기 (테스트, 무제한)" : `스핀하기 (${ticketBalance}장 남음)`}
             </Button>
           )}
           <Button
@@ -469,7 +550,7 @@ export function RouletteWheel({
             variant="outline"
             className="w-full"
             onClick={handleSpinTen}
-            disabled={!isAdmin && ticketBalance < BULK_PAID_DRAWS}
+            disabled={!unlimited && ticketBalance < BULK_PAID_DRAWS}
           >
             10+1연차 뽑기 (10장 소모, 보너스 1회 무료)
           </Button>

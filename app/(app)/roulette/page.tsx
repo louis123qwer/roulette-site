@@ -10,7 +10,7 @@ export default async function RoulettePage() {
 
   const { data: prizes } = await supabase
     .from("prizes")
-    .select("id, name, weight, color, tier")
+    .select("id, name, weight, color, tier, is_blank")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
@@ -41,8 +41,9 @@ export default async function RoulettePage() {
       </div>
       {isAdmin && (
         <div className="mx-auto max-w-xl rounded-xl border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
-          관리자 테스트 모드 — 이 계정의 스핀 결과는 뽑기권을 소모하지 않고, 랭킹·장부·당첨 내역에도
-          기록되지 않습니다.
+          관리자 계정입니다 — 아래 &ldquo;테스트 모드&rdquo; 스위치를 켜두면 뽑기권을 소모하지 않고
+          랭킹·장부·당첨 내역에도 기록되지 않는 가짜 스핀으로 테스트할 수 있어요. 꺼두면 일반 유저와
+          동일하게 실제 기록으로 스핀됩니다.
         </div>
       )}
       <RouletteWheel
