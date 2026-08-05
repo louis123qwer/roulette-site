@@ -13,7 +13,7 @@ const RANK_STYLE: Record<number, { glow: string; label: string }> = {
 export default async function RankingPage() {
   await requireUser();
   const supabase = await createClient();
-  const { data: rows } = await supabase.rpc("get_spin_leaderboard", { p_limit: 50 });
+  const { data: rows } = await supabase.rpc("get_spin_leaderboard");
 
   const leaderboard = rows ?? [];
 

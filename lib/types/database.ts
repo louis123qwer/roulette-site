@@ -225,7 +225,7 @@ export interface Database {
         Returns: number;
       };
       get_spin_leaderboard: {
-        Args: { p_limit?: number };
+        Args: Record<string, never> | { p_limit?: number | null };
         Returns: {
           user_id: string;
           display_name: string | null;
