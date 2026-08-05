@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useAnimation } from "framer-motion";
 import { toast } from "sonner";
 import { spinAction, spinTenAction, spinLuckyAction } from "@/app/actions/spin";
@@ -124,6 +124,16 @@ export function RouletteWheel({
 
   const unlimited = isAdmin && testMode;
   const luckyReady = (isAdmin && luckyPreview) || luckyGauge >= LUCKY_GAUGE_MAX;
+
+  // Wheel/legend switch to Lucky Chance odds the instant it becomes ready
+  // (gauge fills, or the admin flips the preview switch) — no need to press
+  // spin first. Skipped while an animation is in flight so the slices don't
+  // resize mid-spin; handleSpin/handleSpinLucky also set this explicitly for
+  // the spin they're about to run.
+  useEffect(() => {
+    if (spinning) return;
+    startTransition(() => setWheelMode(luckyReady ? "lucky" : "normal"));
+  }, [luckyReady, spinning]);
 
   const tierById = useMemo(() => {
     const map = new Map<string, EffectTier>();
