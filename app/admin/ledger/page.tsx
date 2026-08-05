@@ -10,25 +10,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { LedgerAdjustments } from "@/components/admin/ledger-adjustments";
 
 export default async function AdminLedgerPage() {
   const supabase = await createClient();
-  const { data: daily } = await supabase
-    .from("daily_ledger")
-    .select("*")
-    .order("day", { ascending: false });
+  const [{ data: daily }, { data: adjustments }] = await Promise.all([
+    supabase.from("daily_ledger").select("*").order("day", { ascending: false }),
+    supabase.from("ledger_adjustments").select("*").order("day", { ascending: false }),
+  ]);
 
   const rows = daily ?? [];
   const totalRevenue = rows.reduce((sum, r) => sum + r.revenue, 0);
   const totalPayout = rows.reduce((sum, r) => sum + r.payout, 0);
-  const totalNet = totalRevenue - totalPayout;
+  const totalNet = rows.reduce((sum, r) => sum + r.net_profit, 0);
 
   return (
     <div className="space-y-8">
       <div>
         <p className="font-heading text-2xl font-semibold text-foreground">장부</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          뽑기권 소모(수익)와 당첨 지급(비용)을 일자별로 자동 집계합니다.
+          뽑기권 소모(수익)와 당첨 지급(비용)을 일자별로 자동 집계하고, 수동 조정 항목을 반영합니다.
         </p>
       </div>
 
@@ -86,6 +87,7 @@ export default async function AdminLedgerPage() {
                   <TableHead>날짜</TableHead>
                   <TableHead>수익</TableHead>
                   <TableHead>지급액</TableHead>
+                  <TableHead>조정</TableHead>
                   <TableHead>순이익</TableHead>
                 </TableRow>
               </TableHeader>
@@ -100,6 +102,9 @@ export default async function AdminLedgerPage() {
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {formatGold(row.payout)}
+                    </TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {row.adjustment === 0 ? "—" : formatGold(row.adjustment)}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -116,6 +121,8 @@ export default async function AdminLedgerPage() {
           )}
         </CardContent>
       </Card>
+
+      <LedgerAdjustments initialAdjustments={adjustments ?? []} currentTotalNet={totalNet} />
     </div>
   );
 }

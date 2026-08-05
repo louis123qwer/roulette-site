@@ -133,10 +133,33 @@ export interface Database {
           day: string;
           revenue: number;
           payout: number;
+          adjustment: number;
           net_profit: number;
         };
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      ledger_adjustments: {
+        Row: {
+          id: string;
+          day: string;
+          amount: number;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          day?: string;
+          amount: number;
+          note?: string | null;
+        };
+        Update: {
+          day?: string;
+          amount?: number;
+          note?: string | null;
+        };
         Relationships: [];
       };
       [key: string]: TableFallback;
