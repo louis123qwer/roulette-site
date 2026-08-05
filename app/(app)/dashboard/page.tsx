@@ -14,6 +14,7 @@ export default async function DashboardPage() {
     .from("wins")
     .select("id, prize_name_snapshot, status, created_at")
     .eq("user_id", profile.id)
+    .eq("is_test", false)
     .order("created_at", { ascending: false })
     .limit(3);
 

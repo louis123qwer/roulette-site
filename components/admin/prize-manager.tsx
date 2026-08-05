@@ -58,11 +58,18 @@ export function PrizeManager({
   const [prizes, setPrizes] = useState(initialPrizes);
   const [ticketPrice, setTicketPrice] = useState(String(initialTicketPrice));
   const [isPending, startTransition] = useTransition();
-  const [newPrize, setNewPrize] = useState<{ name: string; weight: string; color: string; tier: Tier }>({
+  const [newPrize, setNewPrize] = useState<{
+    name: string;
+    weight: string;
+    color: string;
+    tier: Tier;
+    isBlank: boolean;
+  }>({
     name: "",
     weight: "10",
     color: COLOR_PALETTE[0],
     tier: "basic",
+    isBlank: false,
   });
 
   const totalWeight = prizes.filter((p) => p.is_active).reduce((sum, p) => sum + p.weight, 0);
@@ -119,6 +126,18 @@ export function PrizeManager({
     });
   }
 
+  function toggleBlank(id: string, isBlank: boolean) {
+    updatePrizeLocal(id, { is_blank: isBlank });
+    const supabase = createClient();
+    startTransition(async () => {
+      const { error } = await supabase.from("prizes").update({ is_blank: isBlank }).eq("id", id);
+      if (error) {
+        toast.error("수정에 실패했습니다: " + error.message);
+        updatePrizeLocal(id, { is_blank: !isBlank });
+      }
+    });
+  }
+
   function deletePrize(id: string) {
     const supabase = createClient();
     startTransition(async () => {
@@ -146,6 +165,7 @@ export function PrizeManager({
           weight,
           color: newPrize.color,
           tier: newPrize.tier,
+          is_blank: newPrize.isBlank,
           sort_order: prizes.length,
         })
         .select()
@@ -160,6 +180,7 @@ export function PrizeManager({
         weight: "10",
         color: COLOR_PALETTE[(prizes.length + 1) % COLOR_PALETTE.length],
         tier: "basic",
+        isBlank: false,
       });
     });
   }
@@ -236,6 +257,16 @@ export function PrizeManager({
               ))}
             </select>
           </div>
+          <div className="flex items-center gap-2 pb-2">
+            <Switch
+              id="prize-is-blank"
+              checked={newPrize.isBlank}
+              onCheckedChange={(checked) => setNewPrize((p) => ({ ...p, isBlank: checked }))}
+            />
+            <Label htmlFor="prize-is-blank" className="text-xs text-muted-foreground">
+              꽝(당첨 없음)
+            </Label>
+          </div>
           <Button onClick={addPrize} disabled={isPending}>
             추가
           </Button>
@@ -260,6 +291,7 @@ export function PrizeManager({
                 <TableHead>실제 확률</TableHead>
                 <TableHead>시세(골드)</TableHead>
                 <TableHead>활성</TableHead>
+                <TableHead>꽝</TableHead>
                 <TableHead className="text-right">삭제</TableHead>
               </TableRow>
             </TableHeader>
@@ -348,6 +380,12 @@ export function PrizeManager({
                     <Switch
                       checked={prize.is_active}
                       onCheckedChange={(checked) => toggleActive(prize.id, checked)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={prize.is_blank}
+                      onCheckedChange={(checked) => toggleBlank(prize.id, checked)}
                     />
                   </TableCell>
                   <TableCell className="text-right">

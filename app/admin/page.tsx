@@ -8,7 +8,11 @@ export default async function AdminOverviewPage() {
 
   const [{ count: pendingCount }, { count: prizeCount }, { count: userCount }, { data: ledger }] =
     await Promise.all([
-      supabase.from("wins").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      supabase
+        .from("wins")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending")
+        .eq("is_test", false),
       supabase.from("prizes").select("*", { count: "exact", head: true }).eq("is_active", true),
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase.from("daily_ledger").select("net_profit"),

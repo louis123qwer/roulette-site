@@ -11,6 +11,7 @@ export default async function HistoryPage() {
     .select("*")
     .eq("user_id", profile.id)
     .is("hidden_at", null)
+    .eq("is_test", false)
     .order("created_at", { ascending: false });
 
   return (

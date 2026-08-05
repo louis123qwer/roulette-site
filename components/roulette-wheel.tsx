@@ -3,9 +3,10 @@
 import { useMemo, useRef, useState } from "react";
 import { motion, useAnimation } from "framer-motion";
 import { toast } from "sonner";
-import { spinAction, spinTenAction } from "@/app/actions/spin";
+import { spinAction, spinTenAction, spinLuckyAction } from "@/app/actions/spin";
 import { Button } from "@/components/ui/button";
 import { formatProbabilityPercent } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { SpinEffect, TIER_RANK, TIER_GLOW, type EffectTier } from "@/components/spin-effect";
 
 type WheelPrize = {
@@ -19,7 +20,7 @@ type WheelPrize = {
 type BulkResult = { prizeName: string; drawIndex: number };
 
 type PendingReveal =
-  | { type: "single"; prizeName: string }
+  | { type: "single"; prizeName: string; isLucky: boolean }
   | { type: "bulk"; results: BulkResult[] };
 
 const SIZE = 320;
@@ -65,15 +66,22 @@ function errorMessage(code: string) {
   if (code === "insufficient_tickets") return "뽑기권이 부족합니다.";
   if (code === "no_active_prizes") return "현재 진행 중인 상품이 없습니다.";
   if (code === "not_authenticated") return "로그인이 필요합니다.";
+  if (code === "lucky_gauge_not_ready") return "럭키 찬스 게이지가 아직 다 차지 않았습니다.";
   return "스핀 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
 }
+
+const LUCKY_GAUGE_MAX = 100;
 
 export function RouletteWheel({
   prizes,
   initialTicketBalance,
+  initialLuckyGauge = 0,
+  isAdmin = false,
 }: {
   prizes: WheelPrize[];
   initialTicketBalance: number;
+  initialLuckyGauge?: number;
+  isAdmin?: boolean;
 }) {
   const controls = useAnimation();
   const rotationRef = useRef(0);
@@ -85,6 +93,10 @@ export function RouletteWheel({
   const [result, setResult] = useState<string | null>(null);
   const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null);
   const [effectTier, setEffectTier] = useState<EffectTier>("basic");
+  const [luckyGauge, setLuckyGauge] = useState(initialLuckyGauge);
+  const [wasLuckySpin, setWasLuckySpin] = useState(false);
+
+  const luckyReady = isAdmin || luckyGauge >= LUCKY_GAUGE_MAX;
 
   const tierById = useMemo(() => {
     const map = new Map<string, EffectTier>();
@@ -160,8 +172,14 @@ export function RouletteWheel({
     if (pending.type === "single") {
       setResult(pending.prizeName);
       setBulkResults(null);
-      toast.success(`"${pending.prizeName}"에 당첨되었습니다!`);
+      setWasLuckySpin(pending.isLucky);
+      toast.success(
+        pending.isLucky
+          ? `✨ 럭키 찬스! "${pending.prizeName}"에 당첨되었습니다!`
+          : `"${pending.prizeName}"에 당첨되었습니다!`
+      );
     } else {
+      setWasLuckySpin(false);
       setBulkResults(pending.results);
       setResult(null);
       toast.success("10+1연차 결과가 나왔습니다!");
@@ -200,7 +218,7 @@ export function RouletteWheel({
   }
 
   async function handleSpin() {
-    if (spinning || ticketBalance < 1) return;
+    if (spinning || (!isAdmin && ticketBalance < 1)) return;
     setSpinning(true);
     setResult(null);
     setBulkResults(null);
@@ -212,16 +230,39 @@ export function RouletteWheel({
       return;
     }
     setTicketBalance(res.remainingTickets);
+    setLuckyGauge(res.luckyGauge);
     setEffectTier(tierById.get(res.prizeId) ?? "basic");
 
     const targetRotation = computeLandingRotation(res.prizeId);
 
-    pendingRevealRef.current = { type: "single", prizeName: res.prizeName };
+    pendingRevealRef.current = { type: "single", prizeName: res.prizeName, isLucky: false };
+    runSpin(targetRotation, SPIN_DURATION);
+  }
+
+  async function handleSpinLucky() {
+    if (spinning || !luckyReady) return;
+    setSpinning(true);
+    setResult(null);
+    setBulkResults(null);
+
+    const res = await spinLuckyAction();
+    if (!res.ok) {
+      toast.error(errorMessage(res.code));
+      setSpinning(false);
+      return;
+    }
+    setTicketBalance(res.remainingTickets);
+    setLuckyGauge(res.luckyGauge);
+    setEffectTier(tierById.get(res.prizeId) ?? "basic");
+
+    const targetRotation = computeLandingRotation(res.prizeId);
+
+    pendingRevealRef.current = { type: "single", prizeName: res.prizeName, isLucky: true };
     runSpin(targetRotation, SPIN_DURATION);
   }
 
   async function handleSpinTen() {
-    if (spinning || ticketBalance < BULK_PAID_DRAWS) return;
+    if (spinning || (!isAdmin && ticketBalance < BULK_PAID_DRAWS)) return;
     setSpinning(true);
     setResult(null);
     setBulkResults(null);
@@ -233,6 +274,7 @@ export function RouletteWheel({
       return;
     }
     setTicketBalance(res.remainingTickets);
+    setLuckyGauge(res.luckyGauge);
 
     // Bulk draws show the effect for the single best (highest-tier) prize
     // won across all 11 results, not any one specific slice.
@@ -263,6 +305,9 @@ export function RouletteWheel({
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="relative mx-auto aspect-square w-full max-w-[320px]">
+        {luckyReady && (
+          <div className="lucky-aura pointer-events-none absolute -inset-4 rounded-full opacity-80" />
+        )}
         <div
           className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2"
           style={{
@@ -381,21 +426,50 @@ export function RouletteWheel({
         </div>
       </div>
 
+      <div className="w-full max-w-xs space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium text-muted-foreground">슈퍼 럭키 신화찬스 게이지</span>
+          <span className={cn("font-semibold tabular-nums", luckyReady && "lucky-text")}>
+            {isAdmin ? "테스트 모드 (무제한)" : `${luckyGauge}/${LUCKY_GAUGE_MAX}`}
+          </span>
+        </div>
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn("h-full rounded-full transition-[width] duration-500", luckyReady && "lucky-gauge-fill")}
+            style={{
+              width: `${isAdmin ? 100 : Math.min(100, (luckyGauge / LUCKY_GAUGE_MAX) * 100)}%`,
+              backgroundColor: luckyReady ? undefined : "var(--foreground)",
+            }}
+          />
+        </div>
+      </div>
+
       {spinning ? (
         <Button size="lg" variant="outline" className="w-full max-w-xs" onClick={handleSkip}>
           건너뛰기
         </Button>
       ) : (
         <div className="flex w-full max-w-xs flex-col gap-3">
-          <Button size="lg" className="w-full" onClick={handleSpin} disabled={ticketBalance < 1}>
-            스핀하기 ({ticketBalance}장 남음)
-          </Button>
+          {luckyReady ? (
+            <Button size="lg" className="lucky-button w-full" onClick={handleSpinLucky}>
+              ✨ 슈퍼 럭키 신화찬스 ✨
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleSpin}
+              disabled={!isAdmin && ticketBalance < 1}
+            >
+              {isAdmin ? "스핀하기 (테스트, 무제한)" : `스핀하기 (${ticketBalance}장 남음)`}
+            </Button>
+          )}
           <Button
             size="lg"
             variant="outline"
             className="w-full"
             onClick={handleSpinTen}
-            disabled={ticketBalance < BULK_PAID_DRAWS}
+            disabled={!isAdmin && ticketBalance < BULK_PAID_DRAWS}
           >
             10+1연차 뽑기 (10장 소모, 보너스 1회 무료)
           </Button>
@@ -406,16 +480,27 @@ export function RouletteWheel({
         <div
           className="w-full max-w-xs rounded-2xl border bg-card p-6 text-center shadow-sm"
           style={
-            effectTier !== "basic"
-              ? {
-                  borderColor: TIER_GLOW[effectTier],
-                  boxShadow: `0 0 28px ${TIER_GLOW[effectTier]}55`,
-                }
-              : undefined
+            wasLuckySpin
+              ? { boxShadow: "0 0 32px rgba(255, 45, 146, 0.45)" }
+              : effectTier !== "basic"
+                ? {
+                    borderColor: TIER_GLOW[effectTier],
+                    boxShadow: `0 0 28px ${TIER_GLOW[effectTier]}55`,
+                  }
+                : undefined
           }
         >
-          <p className="text-sm text-muted-foreground">축하합니다!</p>
-          <p className="mt-1 font-heading text-xl font-semibold text-foreground">{result}</p>
+          <p className="text-sm text-muted-foreground">
+            {wasLuckySpin ? "✨ 슈퍼 럭키 신화찬스 ✨" : "축하합니다!"}
+          </p>
+          <p
+            className={cn(
+              "mt-1 font-heading text-xl font-semibold",
+              wasLuckySpin ? "lucky-text" : "text-foreground"
+            )}
+          >
+            {result}
+          </p>
         </div>
       )}
 

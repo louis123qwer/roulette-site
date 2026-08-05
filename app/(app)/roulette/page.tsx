@@ -22,6 +22,8 @@ export default async function RoulettePage() {
     );
   }
 
+  const isAdmin = profile.role === "admin";
+
   return (
     <div className="space-y-8">
       <RouletteRulesModal />
@@ -37,7 +39,18 @@ export default async function RoulettePage() {
           조각 크기는 실제 당첨 확률과 동일합니다. 결과는 서버에서 계산됩니다.
         </p>
       </div>
-      <RouletteWheel prizes={prizes} initialTicketBalance={profile.ticket_balance} />
+      {isAdmin && (
+        <div className="mx-auto max-w-xl rounded-xl border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
+          관리자 테스트 모드 — 이 계정의 스핀 결과는 뽑기권을 소모하지 않고, 랭킹·장부·당첨 내역에도
+          기록되지 않습니다.
+        </div>
+      )}
+      <RouletteWheel
+        prizes={prizes}
+        initialTicketBalance={profile.ticket_balance}
+        initialLuckyGauge={profile.lucky_gauge}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

@@ -37,6 +37,7 @@ export interface Database {
           avatar_url: string | null;
           role: Role;
           ticket_balance: number;
+          lucky_gauge: number;
           created_at: string;
         };
         // No client-side insert/update — rows are created by the signup
@@ -55,6 +56,7 @@ export interface Database {
           tier: PrizeTier;
           market_price: number;
           is_active: boolean;
+          is_blank: boolean;
           sort_order: number;
           created_at: string;
           updated_at: string;
@@ -68,6 +70,7 @@ export interface Database {
           tier?: PrizeTier;
           market_price?: number;
           is_active?: boolean;
+          is_blank?: boolean;
           sort_order?: number;
         };
         Update: {
@@ -78,6 +81,7 @@ export interface Database {
           tier?: PrizeTier;
           market_price?: number;
           is_active?: boolean;
+          is_blank?: boolean;
           sort_order?: number;
         };
         Relationships: [];
@@ -96,6 +100,7 @@ export interface Database {
           fulfilled_at: string | null;
           fulfilled_by: string | null;
           hidden_at: string | null;
+          is_test: boolean;
         };
         // No client-side insert/update — rows are created/mutated only
         // through the spin_roulette / mark_win_paid RPCs.
@@ -176,6 +181,7 @@ export interface Database {
           prize_id: string;
           prize_name: string;
           remaining_tickets: number;
+          lucky_gauge: number;
         }[];
       };
       spin_roulette_bulk: {
@@ -186,6 +192,17 @@ export interface Database {
           prize_name: string;
           draw_index: number;
           remaining_tickets: number;
+          lucky_gauge: number;
+        }[];
+      };
+      spin_roulette_lucky: {
+        Args: Record<string, never>;
+        Returns: {
+          win_id: string;
+          prize_id: string;
+          prize_name: string;
+          remaining_tickets: number;
+          lucky_gauge: number;
         }[];
       };
       mark_win_paid: {
