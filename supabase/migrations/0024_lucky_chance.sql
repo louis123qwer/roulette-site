@@ -23,6 +23,10 @@ alter table public.wins add column if not exists is_test boolean not null defaul
 -- Admin accounts spin for free with fake results (is_test = true) that never
 -- touch ticket_balance, ticket_transactions, or the lucky gauge. Everyone
 -- else advances their gauge by 1 per draw, capped at 100.
+-- Return shape changed (added lucky_gauge), so the old function must be
+-- dropped first — CREATE OR REPLACE can't alter an existing OUT-param set.
+drop function if exists public.spin_roulette();
+
 create or replace function public.spin_roulette()
 returns table (win_id uuid, prize_id uuid, prize_name text, remaining_tickets int, lucky_gauge int)
 language plpgsql
@@ -94,6 +98,11 @@ begin
   return query select v_win_id, v_prize.id, v_prize.name, v_new_balance, v_gauge;
 end;
 $$;
+
+revoke all on function public.spin_roulette() from public;
+grant execute on function public.spin_roulette() to authenticated;
+
+drop function if exists public.spin_roulette_bulk();
 
 create or replace function public.spin_roulette_bulk()
 returns table (win_id uuid, prize_id uuid, prize_name text, draw_index int, remaining_tickets int, lucky_gauge int)
@@ -182,6 +191,9 @@ begin
   end if;
 end;
 $$;
+
+revoke all on function public.spin_roulette_bulk() from public;
+grant execute on function public.spin_roulette_bulk() to authenticated;
 
 -- One-time bonus spin unlocked at gauge = 100: blank prizes are excluded,
 -- purple/gold/legendary/mythic weight x10, blue weight x20, everything else
