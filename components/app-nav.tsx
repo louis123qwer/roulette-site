@@ -24,6 +24,7 @@ export function AppNav({
     { href: "/dashboard", label: "대시보드" },
     { href: "/roulette", label: "룰렛" },
     { href: "/history", label: "당첨 내역" },
+    { href: "/ranking", label: "랭킹" },
     ...(isAdmin ? [{ href: "/admin", label: "관리자" }] : []),
   ];
 

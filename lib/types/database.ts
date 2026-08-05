@@ -199,6 +199,15 @@ export interface Database {
         Args: Record<string, never>;
         Returns: number;
       };
+      get_spin_leaderboard: {
+        Args: { p_limit?: number };
+        Returns: {
+          user_id: string;
+          display_name: string | null;
+          avatar_url: string | null;
+          spin_count: number;
+        }[];
+      };
       [key: string]: FunctionFallback;
     };
   };
