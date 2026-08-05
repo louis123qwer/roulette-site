@@ -10,6 +10,7 @@ export default async function HistoryPage() {
     .from("wins")
     .select("*")
     .eq("user_id", profile.id)
+    .is("hidden_at", null)
     .order("created_at", { ascending: false });
 
   return (

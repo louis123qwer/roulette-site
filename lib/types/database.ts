@@ -95,6 +95,7 @@ export interface Database {
           created_at: string;
           fulfilled_at: string | null;
           fulfilled_by: string | null;
+          hidden_at: string | null;
         };
         // No client-side insert/update — rows are created/mutated only
         // through the spin_roulette / mark_win_paid RPCs.

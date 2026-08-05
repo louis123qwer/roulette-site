@@ -7,6 +7,7 @@ export default async function AdminWinsPage() {
   const { data: wins } = await supabase
     .from("wins")
     .select("*")
+    .is("hidden_at", null)
     .order("created_at", { ascending: false });
 
   const userIds = Array.from(new Set((wins ?? []).map((w) => w.user_id)));
