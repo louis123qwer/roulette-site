@@ -122,10 +122,11 @@ export interface Database {
         Row: {
           id: number;
           ticket_price: number;
+          ledger_reset_at: string | null;
           updated_at: string;
         };
         Insert: never;
-        Update: { ticket_price?: number };
+        Update: { ticket_price?: number; ledger_reset_at?: string | null };
         Relationships: [];
       };
       daily_ledger: {

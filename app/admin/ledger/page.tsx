@@ -122,7 +122,7 @@ export default async function AdminLedgerPage() {
         </CardContent>
       </Card>
 
-      <LedgerAdjustments initialAdjustments={adjustments ?? []} currentTotalNet={totalNet} />
+      <LedgerAdjustments initialAdjustments={adjustments ?? []} />
     </div>
   );
 }

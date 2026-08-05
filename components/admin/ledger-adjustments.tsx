@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/types/database";
-import { formatGold } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,11 +27,10 @@ function todayStr() {
 
 export function LedgerAdjustments({
   initialAdjustments,
-  currentTotalNet,
 }: {
   initialAdjustments: Adjustment[];
-  currentTotalNet: number;
 }) {
+  const router = useRouter();
   const [adjustments, setAdjustments] = useState(initialAdjustments);
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({ day: todayStr(), amount: "", note: "" });
@@ -85,30 +84,25 @@ export function LedgerAdjustments({
   }
 
   function resetLedger() {
-    if (currentTotalNet === 0) {
-      toast.message("이미 누적 순이익이 0입니다.");
-      return;
-    }
     if (
       !window.confirm(
-        `현재 누적 순이익 ${formatGold(currentTotalNet)}을(를) 0으로 맞추는 조정 항목을 오늘 날짜로 추가할까요? 기존 일자별 기록은 남고, 누적 합계만 0이 됩니다.`
+        "장부를 초기화하면 누적 수익·지급액·순이익이 모두 0부터 다시 시작합니다 (지금까지의 개별 스핀·지급 기록 자체는 삭제되지 않고, 집계 시작 시점만 지금으로 옮겨집니다). 계속할까요?"
       )
     ) {
       return;
     }
     const supabase = createClient();
     startTransition(async () => {
-      const { data, error } = await supabase
-        .from("ledger_adjustments")
-        .insert({ day: todayStr(), amount: -currentTotalNet, note: "관리자 초기화" })
-        .select()
-        .single();
-      if (error || !data) {
-        toast.error("초기화에 실패했습니다: " + error?.message);
+      const { error } = await supabase
+        .from("settings")
+        .update({ ledger_reset_at: new Date().toISOString() })
+        .eq("id", 1);
+      if (error) {
+        toast.error("초기화에 실패했습니다: " + error.message);
         return;
       }
-      setAdjustments((prev) => [data, ...prev]);
       toast.success("장부를 초기화했습니다.");
+      router.refresh();
     });
   }
 
